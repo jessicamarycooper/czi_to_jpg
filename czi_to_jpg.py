@@ -1,6 +1,6 @@
 """
 Generates jpg patches from .czi format whole slide images.
-Run python patch_generator.py --help to see possible arguments.
+Run python czi_to_jpg.py --help to see possible arguments.
 
 Requires javabridge, bioformats and PIL.
 
