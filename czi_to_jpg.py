@@ -2,28 +2,16 @@
 Generates jpg patches from .czi format whole slide images.
 Run python patch_generator.py --help to see possible arguments.
 
+Requires javabridge, bioformats and PIL.
+
 Script by Jessica Cooper (jmc31@st-andrews.ac.uk)
 """
 
-from czifile import CziFile
 import javabridge
 import bioformats
-import pandas as pd
-from os import listdir
-import numpy as np
 from PIL import Image
 import argparse
-import atexit
-
-
-def exit_handler():
-    print('Exiting...')
-    javabridge.kill_vm()
-
-
-atexit.register(exit_handler)
-
-javabridge.start_vm(class_path=bioformats.JARS)
+from os import listdir
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--patch_dim', type=int, default=512, help='Patch dimension. Default is 512.)')
@@ -36,6 +24,8 @@ parser.add_argument('--no_patch', action='store_true', help='If you just want a 
                                                             'monster jpg.')
 
 args = parser.parse_args()
+
+javabridge.start_vm(class_path=bioformats.JARS)
 
 PATCH_DIM = args.patch_dim
 SERIES = args.series
@@ -63,3 +53,6 @@ for i in im_names:
 
     whole_img = Image.fromarray(img.astype('uint8'))
     whole_img.save('{}/{}_{}.jpg'.format(args.jpg_dir, i, SERIES))
+
+javabridge.kill_vm()
+
