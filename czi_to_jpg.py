@@ -15,7 +15,7 @@ import javabridge
 from PIL import Image
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--patch_dim', type=int, default=512, help='Patch dimension. Default is 512.')
+parser.add_argument('--patch_dim', type=int, default=256, help='Patch dimension. Default is 512.')
 parser.add_argument('--overlap', type=int, default=0, help='By how many pixels patches should overlap. Default is 0.')
 parser.add_argument('--series', type=int, default=2, help='Czi series/zoom level. Lower number = higher resolution. Typically runs from 1 to ~7. Lower numbers may cause memory issues. Default is 2.)')
 parser.add_argument('--czi_dir', default='imgs/czis', help='Location of czi files. Default is "imgs/czis"')
@@ -40,7 +40,8 @@ im_names = glob.glob("{}/*.czi".format(args.czi_dir))
 
 
 def normalise(x):
-    print('Normalising pixel values...')
+    if x.max() - x.min() == 0:
+        return x
     return (x - x.min()) / (x.max() - x.min())
 
 
@@ -71,22 +72,21 @@ generated_patches = []
 
 for i in im_names:
     with bioformats.ImageReader(i) as reader:
-        print(reader)
+        reader.rdr.setSeries(SERIES)
         x_dim, y_dim = reader.rdr.getSizeX(), reader.rdr.getSizeY()
 
         if not args.no_patch:
             print('Generating patches...')
             for x in range(0, x_dim - PATCH_DIM, PATCH_DIM - args.overlap):
                 for y in range(0, y_dim - PATCH_DIM, PATCH_DIM - args.overlap):
-                    print(x, y)
-                    patch = normalise(reader.rdr.openBytesXYWH(0, x, y, PATCH_DIM, PATCH_DIM))
+                    patch = normalise(reader.read(XYWH=(x, y, PATCH_DIM, PATCH_DIM))) * 255
+
                     if (patch.max() - patch.min() > 0) or args.save_blank:
-                        try:
-                            patch = Image.fromarray(patch.astype('uint8'))
-                            patch.save('{}/{}_{}_{}_{}.jpg'.format(args.patch_dir, i.split('/')[-1], SERIES, x, y))
-                            generated_patches.append('{}/{}_{}_{}_{}.jpg'.format(args.patch_dir, i.split('/')[-1], SERIES, x, y))
-                        except:
-                            pass
+                        patch_name = '{}/{}_{}_{}_{}.jpg'.format(args.patch_dir, i.split('/')[-1].split('.')[0], SERIES, x, y)
+                        patch = Image.fromarray(patch.astype('uint8'))
+                        patch.save(patch_name)
+                        generated_patches.append(patch_name)
+                        print(patch_name)
 
     try:
         img = normalise(bioformats.load_image(i, series=SERIES)) * 255
@@ -94,7 +94,7 @@ for i in im_names:
         img.save('{}/{}_{}.jpg'.format(args.jpg_dir, i.split('/')[-1], SERIES))
         if args.resize != "0,0":
             img = resize(img, int(args.resize.split(',')[0]), int(args.resize.split(',')[1]))
-        img.save('{}/{}_{}_RESIZED.jpg'.format(args.jpg_dir, i.split('/')[-1], SERIES))
+            img.save('{}/{}_{}_RESIZED.jpg'.format(args.jpg_dir, i.split('/')[-1], SERIES))
     except Exception:
         print("Could not save entire czi as jpg - it's probably too big. Try using a higher series value.")
 
